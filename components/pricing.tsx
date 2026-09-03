@@ -39,6 +39,13 @@ export function Pricing({ country }: PricingProps) {
 
   const activeError = configError || error;
 
+  function copyField(label: string, value: string) {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 1500);
+    });
+  }
+
   const { prices, loading: pricesLoading } = usePaddlePrices(paddle, country);
 
   function subscribe(tier: Tier) {
@@ -123,29 +130,35 @@ export function Pricing({ country }: PricingProps) {
 
         {/* Demo card hint */}
         <div className="mt-5 mx-auto max-w-sm rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-left">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <CreditCard className="w-4 h-4 text-zinc-400" />
             <span className="text-xs font-semibold text-zinc-700">Sandbox Test Card</span>
           </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Card number</span>
-              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
-                4242 4242 4242 4242
-              </code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400">CVC</span>
-              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
-                100
-              </code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Expiry</span>
-              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
-                12 / 34
-              </code>
-            </div>
+          <div className="space-y-2">
+            {[
+              { label: "Card number", value: "4242 4242 4242 4242" },
+              { label: "CVC", value: "100" },
+              { label: "Expiry", value: "12 / 34" },
+            ].map((field) => (
+              <button
+                key={field.label}
+                type="button"
+                onClick={() => copyField(field.label, field.value.replace(/\s/g, ""))}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition group"
+              >
+                <span className="text-[11px] text-zinc-400 font-medium">{field.label}</span>
+                <div className="flex items-center gap-2">
+                  <code className="font-mono text-sm font-semibold text-zinc-800">
+                    {field.value}
+                  </code>
+                  {copiedField === field.label ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-zinc-300 group-hover:text-zinc-500 transition" />
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </div>
