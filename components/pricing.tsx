@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { initializePaddle, type Environments, type Paddle } from "@paddle/paddle-js";
 import { PricingTiers, type Tier } from "@/constants/pricing-tier";
 import { usePaddlePrices } from "@/hooks/usePaddlePrices";
-import { Check, Loader2, CreditCard } from "lucide-react";
+import { Check, Loader2, CreditCard, Copy } from "lucide-react";
 
 interface PricingProps {
   country?: string | null;
@@ -16,6 +16,7 @@ export function Pricing({ country }: PricingProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
   const paddleEnv = process.env.NEXT_PUBLIC_PADDLE_ENV as Environments | undefined;
@@ -121,13 +122,31 @@ export function Pricing({ country }: PricingProps) {
         </div>
 
         {/* Demo card hint */}
-        <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-xs text-zinc-500">
-          <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
-          <span>Sandbox test card:</span>
-          <code className="font-mono font-semibold text-zinc-700">4242 4242 4242 4242</code>
-          <span className="text-zinc-300">|</span>
-          <span>CVC</span>
-          <code className="font-mono font-semibold text-zinc-700">100</code>
+        <div className="mt-5 mx-auto max-w-sm rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-left">
+          <div className="flex items-center gap-2 mb-2">
+            <CreditCard className="w-4 h-4 text-zinc-400" />
+            <span className="text-xs font-semibold text-zinc-700">Sandbox Test Card</span>
+          </div>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400">Card number</span>
+              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
+                4242 4242 4242 4242
+              </code>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400">CVC</span>
+              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
+                100
+              </code>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400">Expiry</span>
+              <code className="font-mono font-semibold text-zinc-800 bg-white px-2 py-0.5 rounded border border-zinc-200">
+                12 / 34
+              </code>
+            </div>
+          </div>
         </div>
       </div>
 
