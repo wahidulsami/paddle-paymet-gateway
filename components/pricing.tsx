@@ -56,9 +56,10 @@ export function Pricing({ country }: PricingProps) {
     setOpeningId(priceId);
 
     try {
-      const successUrl = email.trim()
-        ? `${window.location.origin}/welcome?email=${encodeURIComponent(email.trim())}`
-        : `${window.location.origin}/welcome`;
+      // Store email in localStorage BEFORE checkout opens (Paddle strips query params from successUrl)
+      if (email.trim()) {
+        localStorage.setItem("paddle_checkout_email", email.trim());
+      }
 
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
@@ -66,7 +67,7 @@ export function Pricing({ country }: PricingProps) {
           displayMode: "overlay",
           theme: "light",
           variant: "one-page",
-          successUrl,
+          successUrl: `${window.location.origin}/account`,
         },
         customer: email.trim() ? { email: email.trim() } : undefined,
       });

@@ -1,22 +1,7 @@
-"use client";
+import Link from "next/link";
+import { CheckCircle, ArrowRight } from "lucide-react";
 
-import { Suspense, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { CheckCircle } from "lucide-react";
-
-function WelcomeContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const email = searchParams.get("email");
-
-  useEffect(() => {
-    if (email) {
-      localStorage.setItem("paddle_checkout_email", email);
-      console.log(`[Welcome] Stored checkout email in localStorage: ${email}`);
-      router.replace(`/account?email=${encodeURIComponent(email)}`);
-    }
-  }, [email, router]);
-
+export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="max-w-sm w-full text-center space-y-6">
@@ -27,22 +12,26 @@ function WelcomeContent() {
         <div className="space-y-2">
           <h1 className="text-xl font-bold text-zinc-900">Checkout complete</h1>
           <p className="text-sm text-zinc-500">
-            {email ? (
-              <>Redirecting to your account for <strong>{email}</strong>...</>
-            ) : (
-              <>Your trial is active. Redirecting to your account...</>
-            )}
+            Your subscription is being processed. Check your account for details.
           </p>
+        </div>
+
+        <div className="space-y-2">
+          <Link
+            href="/account"
+            className="block w-full py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition"
+          >
+            Go to account
+            <ArrowRight className="w-3.5 h-3.5 inline ml-1.5" />
+          </Link>
+          <Link
+            href="/"
+            className="block w-full py-2.5 rounded-lg text-zinc-500 text-sm font-medium hover:text-zinc-800 transition"
+          >
+            Back to pricing
+          </Link>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function WelcomePage() {
-  return (
-    <Suspense>
-      <WelcomeContent />
-    </Suspense>
   );
 }
