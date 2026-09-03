@@ -1,7 +1,22 @@
-import Link from "next/link";
+"use client";
+
+import { Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle } from "lucide-react";
 
-export default function WelcomePage() {
+function WelcomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const email = searchParams.get("email");
+
+  useEffect(() => {
+    if (email) {
+      localStorage.setItem("paddle_checkout_email", email);
+      console.log(`[Welcome] Stored checkout email in localStorage: ${email}`);
+      router.replace(`/account?email=${encodeURIComponent(email)}`);
+    }
+  }, [email, router]);
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="max-w-sm w-full text-center space-y-6">
@@ -12,26 +27,22 @@ export default function WelcomePage() {
         <div className="space-y-2">
           <h1 className="text-xl font-bold text-zinc-900">Checkout complete</h1>
           <p className="text-sm text-zinc-500">
-            Your trial is active. Webhooks are processing in the background &mdash; your
-            subscription will appear on the account page shortly.
+            {email ? (
+              <>Redirecting to your account for <strong>{email}</strong>...</>
+            ) : (
+              <>Your trial is active. Redirecting to your account...</>
+            )}
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <Link
-            href="/account"
-            className="block w-full py-2.5 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition"
-          >
-            View account
-          </Link>
-          <Link
-            href="/"
-            className="block w-full py-2.5 rounded-lg text-zinc-500 text-sm font-medium hover:text-zinc-800 transition"
-          >
-            Back to pricing
-          </Link>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WelcomePage() {
+  return (
+    <Suspense>
+      <WelcomeContent />
+    </Suspense>
   );
 }

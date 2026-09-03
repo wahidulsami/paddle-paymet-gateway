@@ -157,7 +157,16 @@ export function getSubscriptionByCustomerId(customerId: string): SubscriptionRec
   const stmt = db.prepare(`
     SELECT * FROM subscriptions
     WHERE customer_id = ?
-    ORDER BY created_at DESC
+    ORDER BY
+      CASE status
+        WHEN 'active' THEN 0
+        WHEN 'trialing' THEN 1
+        WHEN 'past_due' THEN 2
+        WHEN 'paused' THEN 3
+        WHEN 'canceled' THEN 4
+        ELSE 5
+      END,
+      updated_at DESC
     LIMIT 1
   `);
   return stmt.get(customerId) as SubscriptionRecord | undefined;

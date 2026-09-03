@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   createPortalSessionAction,
@@ -34,6 +34,16 @@ export function AccountManager({
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
+
+  // On mount: if URL has no email but localStorage has a fresh checkout email, use it
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("paddle_checkout_email");
+    if (storedEmail && storedEmail !== email) {
+      console.log(`[Account] Found checkout email in localStorage: ${storedEmail}, redirecting...`);
+      localStorage.removeItem("paddle_checkout_email");
+      router.replace(`/account?email=${encodeURIComponent(storedEmail)}`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentTier = PricingTiers.find(
     (t) => t.priceId.month === subscription?.price_id || t.priceId.year === subscription?.price_id

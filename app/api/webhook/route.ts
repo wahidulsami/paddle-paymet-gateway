@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const eventData = await paddle.webhooks.unmarshal(rawBody, secret, signature);
 
     if (eventData) {
+      console.log(`[Paddle Webhook] Verified event: ${eventData.eventType} (ID: ${eventData.eventId})`);
       await processEvent(eventData);
     }
 

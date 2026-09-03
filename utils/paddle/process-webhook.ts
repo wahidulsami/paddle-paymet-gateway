@@ -93,7 +93,12 @@ async function handleCustomerEvent(
     `[Paddle Webhook] Upserting customer ${customer.id} (${customer.email})`
   );
 
-  upsertCustomer(customer.id, customer.email);
+  const record = upsertCustomer(customer.id, customer.email);
+  console.log(`[Paddle Webhook] Customer record after upsert:`, {
+    customer_id: record.customer_id,
+    email: record.email,
+    updated_at: record.updated_at,
+  });
 }
 
 async function handleTransactionCompletedEvent(

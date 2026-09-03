@@ -56,13 +56,17 @@ export function Pricing({ country }: PricingProps) {
     setOpeningId(priceId);
 
     try {
+      const successUrl = email.trim()
+        ? `${window.location.origin}/welcome?email=${encodeURIComponent(email.trim())}`
+        : `${window.location.origin}/welcome`;
+
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         settings: {
           displayMode: "overlay",
           theme: "light",
           variant: "one-page",
-          successUrl: `${window.location.origin}/welcome`,
+          successUrl,
         },
         customer: email.trim() ? { email: email.trim() } : undefined,
       });

@@ -16,17 +16,26 @@ interface AccountPageProps {
 export default async function AccountPage({ searchParams }: AccountPageProps) {
   const { email } = await searchParams;
 
+  console.log(`[Account Page] Loading account for email: "${email || "(none)"}"`);
+
   const customers = getAllCustomers();
   const selectedEmail = email || (customers.length > 0 ? customers[0].email : "");
+
+  console.log(`[Account Page] Selected email: "${selectedEmail}", Total customers in DB: ${customers.length}`);
 
   const customer = selectedEmail ? getCustomerByEmail(selectedEmail) ?? null : null;
   const subscription = customer ? getSubscriptionByCustomerId(customer.customer_id) ?? null : null;
   const access = checkSubscriptionAccess(subscription);
 
+  console.log(`[Account Page] Customer found: ${customer ? `${customer.customer_id} (${customer.email})` : "none"}`);
+  console.log(`[Account Page] Subscription found: ${subscription ? `${subscription.subscription_id} (status: ${subscription.status})` : "none"}`);
+
   const allTx = getAllTransactions();
   const transactions = customer
     ? allTx.filter((t) => t.customer_id === customer.customer_id)
     : allTx;
+
+  console.log(`[Account Page] Transactions for this customer: ${transactions.length}`);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">

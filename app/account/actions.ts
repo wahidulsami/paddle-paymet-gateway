@@ -33,15 +33,20 @@ export async function createPortalSessionAction(
   // 1. Resolve Paddle customer ID server-side via email bridge
   const customer = getCustomerByEmail(email);
   if (!customer?.customer_id) {
+    console.warn(`[Portal] No customer found for email: "${email}"`);
     return {
       error:
         "No Paddle customer record found for this email. Please complete a checkout on the pricing page first.",
     };
   }
 
+  console.log(`[Portal] Resolved customer: ${customer.customer_id} for email: "${email}"`);
+
   // 2. Fetch active subscriptions for deep links
   const sub = getSubscriptionByCustomerId(customer.customer_id);
   const subscriptionIds = sub ? [sub.subscription_id] : [];
+
+  console.log(`[Portal] Subscription for deep links: ${sub ? sub.subscription_id : "none"}, customer_id: ${customer.customer_id}`);
 
   try {
     const paddle = getPaddleInstance();
