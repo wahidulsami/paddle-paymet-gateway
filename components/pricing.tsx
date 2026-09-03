@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { initializePaddle, type Environments, type Paddle } from "@paddle/paddle-js";
 import { PricingTiers, type Tier } from "@/constants/pricing-tier";
 import { usePaddlePrices } from "@/hooks/usePaddlePrices";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, CreditCard } from "lucide-react";
 
 interface PricingProps {
   country?: string | null;
@@ -118,6 +118,16 @@ export function Pricing({ country }: PricingProps) {
               )}
             </button>
           ))}
+        </div>
+
+        {/* Demo card hint */}
+        <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-xs text-zinc-500">
+          <CreditCard className="w-3.5 h-3.5 text-zinc-400" />
+          <span>Sandbox test card:</span>
+          <code className="font-mono font-semibold text-zinc-700">4242 4242 4242 4242</code>
+          <span className="text-zinc-300">|</span>
+          <span>CVC</span>
+          <code className="font-mono font-semibold text-zinc-700">100</code>
         </div>
       </div>
 
