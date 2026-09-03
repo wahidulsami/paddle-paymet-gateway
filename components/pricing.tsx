@@ -4,64 +4,48 @@ import { useEffect, useState } from "react";
 import { initializePaddle, type Environments, type Paddle } from "@paddle/paddle-js";
 import { PricingTiers, type Tier } from "@/constants/pricing-tier";
 import { usePaddlePrices } from "@/hooks/usePaddlePrices";
-import { Check, Loader2, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 interface PricingProps {
   country?: string | null;
-  initialEmail?: string;
 }
 
-export function Pricing({ country, initialEmail = "" }: PricingProps) {
-  const [billingFrequency, setBillingFrequency] = useState<"month" | "year">("month");
-  const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
-  const [customerEmail, setCustomerEmail] = useState<string>(initialEmail);
-  const [paddleInitError, setPaddleInitError] = useState<string | null>(null);
-  const [checkoutOpeningPriceId, setCheckoutOpeningPriceId] = useState<string | null>(null);
+export function Pricing({ country }: PricingProps) {
+  const [billing, setBilling] = useState<"month" | "year">("month");
+  const [paddle, setPaddle] = useState<Paddle | undefined>();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
   const paddleEnv = process.env.NEXT_PUBLIC_PADDLE_ENV as Environments | undefined;
 
-  const configError = !clientToken || !paddleEnv
-    ? "Missing Paddle environment configuration. Please set NEXT_PUBLIC_PADDLE_CLIENT_TOKEN and NEXT_PUBLIC_PADDLE_ENV in your environment (e.g. .env.local)."
-    : null;
+  const configError =
+    !clientToken || !paddleEnv
+      ? "Set NEXT_PUBLIC_PADDLE_CLIENT_TOKEN and NEXT_PUBLIC_PADDLE_ENV in .env.local"
+      : null;
 
-  // Initialize Paddle.js
   useEffect(() => {
-    if (!clientToken || !paddleEnv) {
-      return;
-    }
+    if (!clientToken || !paddleEnv) return;
 
-    initializePaddle({
-      token: clientToken,
-      environment: paddleEnv,
-    })
-      .then((instance) => {
-        if (instance) {
-          setPaddle(instance);
-        } else {
-          setPaddleInitError("Paddle.js initialization returned no instance.");
-        }
+    initializePaddle({ token: clientToken, environment: paddleEnv })
+      .then((p) => {
+        if (p) setPaddle(p);
+        else setError("Paddle.js returned no instance");
       })
-      .catch((err) => {
-        console.error("Failed to initialize Paddle.js:", err);
-        setPaddleInitError(
-          `Failed to initialize Paddle.js: ${err instanceof Error ? err.message : String(err)}`
-        );
-      });
+      .catch((err) => setError(`Paddle.js init failed: ${err instanceof Error ? err.message : err}`));
   }, [clientToken, paddleEnv]);
 
-  const activeError = configError || paddleInitError;
+  const activeError = configError || error;
 
   const { prices, loading: pricesLoading } = usePaddlePrices(paddle, country);
 
-  function handleSubscribe(tier: Tier) {
-    const priceId = tier.priceId[billingFrequency];
-    if (!paddle) {
-      alert("Paddle checkout is not ready. Please verify your client token.");
-      return;
-    }
+  function subscribe(tier: Tier) {
+    const priceId = tier.priceId[billing];
+    if (!paddle) return;
 
-    setCheckoutOpeningPriceId(priceId);
+    setError(null);
+    setOpeningId(priceId);
 
     try {
       paddle.Checkout.open({
@@ -72,174 +56,132 @@ export function Pricing({ country, initialEmail = "" }: PricingProps) {
           variant: "one-page",
           successUrl: `${window.location.origin}/welcome`,
         },
-        customer: customerEmail.trim() ? { email: customerEmail.trim() } : undefined,
+        customer: email.trim() ? { email: email.trim() } : undefined,
       });
     } catch (err) {
-      console.error("Error opening checkout:", err);
-      alert("Error opening checkout. Check console for details.");
+      setError(`Checkout failed: ${err instanceof Error ? err.message : err}`);
     } finally {
-      setTimeout(() => setCheckoutOpeningPriceId(null), 1000);
+      setTimeout(() => setOpeningId(null), 1000);
     }
   }
 
   return (
-    <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Environment Config Warning if unset */}
+    <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-16">
+      {/* Config error toast */}
       {activeError && (
-        <div className="mb-8 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-sm">Paddle Configuration Required</h4>
-            <p className="text-xs text-amber-700 mt-1">{activeError}</p>
-            <p className="text-xs text-amber-800 mt-2 font-mono">
-              Run the catalog seed script or export NEXT_PUBLIC_PADDLE_CLIENT_TOKEN and NEXT_PUBLIC_PADDLE_ENV=sandbox
-            </p>
-          </div>
+        <div className="mb-8 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+          {activeError}
         </div>
       )}
 
       {/* Header */}
-      <div className="text-center max-w-3xl mx-auto mb-12">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>7-Day Free Trial On All Plans</span>
-        </div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-zinc-900 sm:text-5xl">
-          Predictable, transparent pricing
-        </h2>
-        <p className="mt-4 text-lg text-zinc-600">
-          Choose the plan that fits your growth. Seamless Paddle sandbox checkout with instant provisioning.
+      <div className="text-center mb-12">
+        <p className="text-xs font-medium text-emerald-600 uppercase tracking-wider mb-3">
+          7-day free trial on all plans
+        </p>
+        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+          Simple pricing
+        </h1>
+        <p className="mt-3 text-zinc-500 max-w-lg mx-auto">
+          Paddle handles checkout, tax, and subscriptions so you can focus on building.
         </p>
 
-        {/* Customer email prefill input */}
-        <div className="mt-6 flex items-center justify-center gap-2 max-w-md mx-auto">
-          <label htmlFor="customerEmail" className="text-xs font-medium text-zinc-500 whitespace-nowrap">
-            Your Email:
-          </label>
+        {/* Email */}
+        <div className="mt-6 max-w-xs mx-auto">
           <input
-            id="customerEmail"
             type="email"
-            placeholder="test@example.com (prefills checkout)"
-            value={customerEmail}
-            onChange={(e) => setCustomerEmail(e.target.value)}
-            className="w-full px-3 py-1.5 text-sm rounded-lg border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            placeholder="Email (optional, prefills checkout)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
           />
         </div>
 
-        {/* Billing Frequency Toggle */}
-        <div className="mt-8 flex justify-center">
-          <div className="relative flex p-1 bg-zinc-100 rounded-xl border border-zinc-200 shadow-inner">
+        {/* Billing toggle */}
+        <div className="mt-6 inline-flex p-1 bg-zinc-100 rounded-lg">
+          {(["month", "year"] as const).map((f) => (
             <button
+              key={f}
               type="button"
-              onClick={() => setBillingFrequency("month")}
-              className={`relative py-2 px-6 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                billingFrequency === "month"
+              onClick={() => setBilling(f)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+                billing === f
                   ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-600 hover:text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-700"
               }`}
             >
-              Monthly billing
+              {f === "month" ? "Monthly" : "Annual"}
+              {f === "year" && (
+                <span className="ml-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                  2 MO FREE
+                </span>
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => setBillingFrequency("year")}
-              className={`relative py-2 px-6 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 ${
-                billingFrequency === "year"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-600 hover:text-zinc-900"
-              }`}
-            >
-              <span>Annual billing</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                2 Months Free
-              </span>
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Tiers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+      {/* Tiers */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {PricingTiers.map((tier) => {
-          const currentPriceId = tier.priceId[billingFrequency];
-          const formattedTotal = prices[currentPriceId];
+          const priceId = tier.priceId[billing];
+          const display = prices[priceId];
           const isFeatured = tier.popular;
 
           return (
             <div
               key={tier.id}
-              className={`relative flex flex-col rounded-2xl p-8 transition-all duration-300 ${
+              className={`relative flex flex-col rounded-xl p-6 transition ${
                 isFeatured
-                  ? "border-2 border-emerald-600 bg-white shadow-xl scale-105 z-10"
-                  : "border border-zinc-200 bg-zinc-50/50 hover:bg-white hover:shadow-lg"
+                  ? "border-2 border-emerald-600 bg-white shadow-lg scale-[1.02] z-10"
+                  : "border border-zinc-200 bg-white"
               }`}
             >
               {isFeatured && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-emerald-600 text-white rounded-full text-xs font-bold uppercase tracking-wider shadow">
-                  Most Popular
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-emerald-600 text-white rounded-full text-[11px] font-semibold">
+                  Popular
                 </div>
               )}
 
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-zinc-900">{tier.name}</h3>
-                <p className="text-sm text-zinc-500 mt-2 min-h-[40px]">{tier.description}</p>
+              <h3 className="text-lg font-semibold text-zinc-900">{tier.name}</h3>
+              <p className="text-sm text-zinc-500 mt-1">{tier.description}</p>
+
+              <div className="mt-4 pb-4 border-b border-zinc-100">
+                {pricesLoading && !display ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-zinc-300" />
+                ) : (
+                  <span className="text-3xl font-bold text-zinc-900">
+                    {display || "$--"}
+                  </span>
+                )}
+                <span className="text-sm text-zinc-400 ml-1">
+                  /{billing === "month" ? "mo" : "yr"}
+                </span>
               </div>
 
-              {/* Price section - purely displays Paddle's formattedTotals */}
-              <div className="mb-6 pb-6 border-b border-zinc-200/80">
-                <div className="flex items-baseline gap-1">
-                  {pricesLoading && !formattedTotal ? (
-                    <div className="flex items-center gap-2 py-1 text-zinc-400">
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="text-sm font-medium">Fetching price...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="text-4xl font-extrabold tracking-tight text-zinc-900">
-                        {formattedTotal || (billingFrequency === "month" ? "$10.00" : "$100.00")}
-                      </span>
-                      <span className="text-sm font-medium text-zinc-500">
-                        /{billingFrequency === "month" ? "mo" : "yr"}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  Includes 7-day free trial
-                </p>
-              </div>
-
-              {/* Feature List */}
-              <ul className="space-y-3.5 mb-8 flex-1">
-                {tier.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-zinc-700">
-                    <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                    <span>{feature}</span>
+              <ul className="mt-4 space-y-2.5 flex-1">
+                {tier.features.map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-zinc-600">
+                    <Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    {f}
                   </li>
                 ))}
               </ul>
 
-              {/* Action Button */}
               <button
                 type="button"
-                onClick={() => handleSubscribe(tier)}
-                disabled={!paddle || checkoutOpeningPriceId === currentPriceId}
-                className={`w-full py-3 px-5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
+                onClick={() => subscribe(tier)}
+                disabled={!paddle || openingId === priceId}
+                className={`mt-6 w-full py-2.5 rounded-lg text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
                   isFeatured
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-emerald-600/25"
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                     : "bg-zinc-900 hover:bg-zinc-800 text-white"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                }`}
               >
-                {checkoutOpeningPriceId === currentPriceId ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Opening Checkout...</span>
-                  </>
+                {openingId === priceId ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <>
-                    <span>Start 7-Day Free Trial</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                  "Start free trial"
                 )}
               </button>
             </div>

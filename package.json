@@ -1,7 +1,9 @@
 {
-  "name": "paddle",
+  "name": "paddle-billing-demo",
   "version": "0.1.0",
+  "description": "Open-source Next.js demo of Paddle Billing: overlay checkout, webhooks, and customer portal",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
