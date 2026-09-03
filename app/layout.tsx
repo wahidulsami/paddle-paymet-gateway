@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Paddle Billing Demo",
   description:
     "Open-source Next.js demo of Paddle Billing: overlay checkout, webhook-driven fulfillment, and customer portal.",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

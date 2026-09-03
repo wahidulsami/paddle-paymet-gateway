@@ -7,6 +7,7 @@ import {
 } from "@/lib/db";
 import { checkSubscriptionAccess } from "@/lib/access";
 import { AccountManager } from "@/components/account-manager";
+import { Logo } from "@/components/logo";
 import { ArrowLeft } from "lucide-react";
 
 interface AccountPageProps {
@@ -46,9 +47,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-emerald-600 flex items-center justify-center text-white font-bold text-xs">
-                P
-              </div>
+              <Logo size={24} />
               <span className="font-semibold text-sm">Account</span>
             </div>
           </div>
