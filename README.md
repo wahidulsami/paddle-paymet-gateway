@@ -1,212 +1,342 @@
-# Paddle Billing Demo
+# 💳 Paddle Billing & Payment Gateway Demo
 
-A minimal, open-source [Next.js](https://nextjs.org) demo showing how to integrate [Paddle Billing](https://www.paddle.com/) for SaaS subscriptions: overlay checkout, webhook-driven fulfillment, and a customer portal.
+<p align="center">
+  <strong>Production-ready SaaS billing integration built with Next.js 16 (App Router), Paddle Billing, Tailwind CSS v4, and SQLite.</strong>
+</p>
 
-## Quick start
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.3.4-black?style=for-the-badge&logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19.2.8-blue?style=for-the-badge&logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/Paddle_Billing-v3-00d97e?style=for-the-badge&logo=paddle" alt="Paddle Billing" />
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
+</p>
+
+---
+
+## 📖 Overview
+
+This repository demonstrates an end-to-end, production-grade integration of **[Paddle Billing](https://www.paddle.com/)** (Paddle's Merchant of Record platform) within a modern **Next.js 16 (App Router)** SaaS application.
+
+It solves real-world billing architecture challenges:
+- **Zero Payment Headaches**: Paddle acts as Merchant of Record (handling global sales tax, VAT, compliance, and currency conversion).
+- **Frictionless Checkout**: Paddle.js overlay modal with prefilled customer emails and 1-click test card helpers.
+- **Dynamic Localized Pricing**: Real-time localized price preview based on visitor IP or country headers.
+- **Secure Webhook Pipeline**: Raw-stream HMAC-SHA256 signature verification via `@paddle/paddle-node-sdk` with non-blocking idempotency.
+- **Self-Service Customer Portal**: Direct session minting via Next.js Server Actions to allow users to manage payment methods and download tax invoices without exposing sensitive secrets.
+- **Complete Subscription Lifecycle**: Plan upgrades/downgrades with proration, cancellation scheduling (`next_billing_period` vs `immediately`), and graceful handling of `past_due` dunning.
+
+---
+
+## 🏗️ Architecture & Data Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Customer / Browser
+    participant NextClient as Next.js Client (Paddle.js)
+    participant NextServer as Next.js Server & Actions
+    participant PaddleAPI as Paddle Billing Engine
+    participant DB as SQLite Mirror (WAL Mode)
+
+    Note over User,PaddleAPI: 1. Checkout & Purchase
+    User->>NextClient: Select plan & trigger checkout
+    NextClient->>PaddleAPI: paddle.Checkout.open() (Overlay)
+    User->>PaddleAPI: Submit test card & complete payment
+    PaddleAPI-->>NextClient: Checkout Success -> Redirect /account
+
+    Note over PaddleAPI,DB: 2. Asynchronous Webhook Sync
+    PaddleAPI->>NextServer: POST /api/webhook (Signed payload)
+    NextServer->>NextServer: Verify HMAC-SHA256 signature
+    NextServer->>DB: Idempotent upsert (Customers, Subscriptions, Transactions)
+    NextServer-->>PaddleAPI: 200 OK Response
+
+    Note over User,DB: 3. Entitlement & Customer Portal
+    User->>NextServer: Load /account page
+    NextServer->>DB: Query customer & subscription status
+    NextServer-->>User: Render tier status & billing history
+    User->>NextServer: Click "Open portal" (Server Action)
+    NextServer->>PaddleAPI: paddle.customerPortalSessions.create()
+    PaddleAPI-->>NextServer: Single-use portal redirect URL
+    NextServer-->>User: Redirect to Paddle-hosted portal
+```
+
+---
+
+## ✨ Key Features
+
+- ⚡ **Paddle.js Overlay Checkout**: Sleek, one-page overlay checkout with prefilled customer data, custom success callbacks, and sandbox test card copy utilities.
+- 🌍 **Localized Price Previews**: Uses `paddle.PricePreview()` to automatically query localized pricing and tax rates per customer currency (USD, GBP, EUR, AUD).
+- 🛡️ **Cryptographic Webhook Verification**: Verifies incoming webhooks with Paddle's HMAC-SHA256 signature using `paddle.webhooks.unmarshal()` against the raw request stream.
+- 🔄 **Idempotent Database Mirror**: Built-in SQLite database (`better-sqlite3` in high-concurrency WAL mode) with `ON CONFLICT DO UPDATE` upserts for foolproof webhook replays.
+- 🎛️ **Full Subscription Management**:
+  - Immediate plan switching with prorated billing or preview.
+  - End-of-cycle cancellation scheduling or immediate termination.
+  - Granular access policy rules (`active`, `trialing`, `past_due` grace periods, `canceled`).
+- 🧾 **Self-Serve Customer Portal**: Authenticated server action mints one-time customer portal URLs for managing payment methods, viewing invoices, and updating billing details.
+- 🤖 **Automated Catalog Seeder**: CLI command (`npm run seed:catalog`) to automatically configure products, monthly/yearly prices, 7-day free trials, and purchasing power parity overrides in Paddle.
+
+---
+
+## 🧰 Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| **[Next.js 16](https://nextjs.org/)** | React Framework (App Router, Server Actions, Route Handlers) |
+| **[React 19](https://react.dev/)** | Server & Client Components, React Transitions (`useTransition`) |
+| **[@paddle/paddle-js](https://developer.paddle.com/paddlejs/overview)** | Client-side checkout modal & real-time localized price preview |
+| **[@paddle/paddle-node-sdk](https://developer.paddle.com/api-reference/overview)** | Backend SDK: webhook unmarshaling, portal sessions, subscription ops |
+| **[better-sqlite3](https://github.com/WiseLibs/better-sqlite3)** | Fast, zero-config local database with WAL pragma |
+| **[Tailwind CSS v4](https://tailwindcss.com/)** | Next-generation utility-first styling |
+| **[Lucide React](https://lucide.dev/)** | Clean, modern iconography |
+| **[tsx](https://github.com/privatenumber/tsx)** | TypeScript execution engine for database/catalog seeding scripts |
+
+---
+
+## 📂 Project Structure
 
 ```bash
-git clone https://github.com/your-name/paddle-billing-demo.git
-cd paddle-billing-demo
+paddle/
+├── app/
+│   ├── account/
+│   │   ├── actions.ts           # Server Actions: portal sessions, upgrades, cancels
+│   │   └── page.tsx             # Account dashboard & entitlement checks
+│   ├── api/
+│   │   └── webhook/
+│   │       ├── route.ts         # Primary webhook handler (HMAC-SHA256 verified)
+│   │       └── paddle/route.ts  # Webhook alias endpoint
+│   ├── welcome/page.tsx         # Post-checkout confirmation screen
+│   ├── layout.tsx               # Root application layout
+│   └── page.tsx                 # Dynamic pricing page (Geo-IP aware)
+├── components/
+│   ├── account-manager.tsx      # Subscription UI, plan switcher, billing table
+│   ├── logo.tsx                 # Branded SVG logo component
+│   └── pricing.tsx              # Pricing grid, billing toggle, test card helpers
+├── constants/
+│   └── pricing-tier.ts          # Tier definitions (Starter, Pro, Advanced)
+├── hooks/
+│   └── usePaddlePrices.ts       # Hook wrapping paddle.PricePreview() for geo-pricing
+├── lib/
+│   ├── access.ts                # Subscription access control & status state machine
+│   └── db.ts                    # SQLite database schema, indices & idempotent CRUD
+├── scripts/
+│   └── seed-catalog.ts          # Automated Paddle catalog & price provisioning
+├── utils/paddle/
+│   ├── get-paddle-instance.ts   # Singleton Paddle Node SDK factory
+│   └── process-webhook.ts       # Typed webhook event handlers
+├── catalog-ids.json             # Seeded Paddle product & price references
+├── .env.example                 # Environment variables blueprint
+└── package.json                 # Dependencies and execution scripts
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/wahidulsami/paddle-paymet-gateway.git
+cd paddle-paymet-gateway
 npm install
-cp .env.example .env.local    # fill in your Paddle credentials
-npm run seed:catalog           # create products & prices in Paddle sandbox
-npm run dev                    # http://localhost:3000
 ```
 
-## Prerequisites
+### 2. Configure Environment Variables
 
-1. A free [Paddle](https://www.paddle.com/) sandbox account
-2. Node.js 18+
-3. (Optional) [ngrok](https://ngrok.com) for local webhook testing
+Create a `.env.local` file by copying the template:
 
-Generate three credentials from **Paddle Dashboard &rarr; Developer Tools**:
-
-| Credential | Where | Used by |
-|---|---|---|
-| Client-side token | Authentication &rarr; Client-side tokens | Paddle.js (checkout overlay) |
-| API key | Authentication &rarr; API keys | Paddle Node SDK (server) |
-| Notification signing secret | Notifications &rarr; your destination &rarr; Secret | Webhook HMAC verification |
-
-## How it works
-
-```
-Pricing page (/)
-  User clicks "Start free trial"
-    -> Paddle.js overlay checkout opens (client-side)
-    -> User completes payment in sandbox
-    -> Paddle redirects to /welcome
-
-Paddle webhook POST /api/webhook/paddle
-    -> HMAC-SHA256 signature verified with PADDLE_NOTIFICATION_WEBHOOK_SECRET
-    -> Event dispatched:
-        subscription.created / updated / canceled  -> subscriptions table
-        customer.created / updated                 -> customers table
-        transaction.completed                      -> transactions table
-    -> All writes are idempotent (ON CONFLICT ... DO UPDATE)
-
-Account page (/account)
-    -> Reads subscription status from SQLite
-    -> Access check: active/trialing = granted, canceled = denied
-    -> Plan upgrade, cancel, and customer portal (Paddle-hosted)
+```bash
+cp .env.example .env.local
 ```
 
-## Project structure
-
-```
-app/
-  page.tsx                     Pricing page (server component)
-  layout.tsx                   Root layout
-  welcome/page.tsx             Post-checkout success
-  account/page.tsx             Subscription management (server component)
-  account/actions.ts           Server Actions: portal, upgrade, cancel
-  api/webhook/route.ts         Webhook handler (HMAC verification)
-  api/webhook/paddle/route.ts  Alias re-export
-components/
-  pricing.tsx                  Pricing cards + Paddle.js checkout
-  account-manager.tsx          Subscription management UI
-lib/
-  db.ts                        SQLite schema + CRUD (better-sqlite3)
-  access.ts                    Subscription access logic
-utils/paddle/
-  get-paddle-instance.ts       Singleton Paddle Node SDK
-  process-webhook.ts           Webhook event handlers
-constants/
-  pricing-tier.ts              Tier config (Starter / Pro / Advanced)
-scripts/
-  seed-catalog.ts              Creates Paddle products & prices
-```
-
-## Environment variables
-
-Copy `.env.example` to `.env.local` and fill in your values:
+Fill in your credentials from the **[Paddle Sandbox Dashboard](https://sandbox-vendors.paddle.com)**:
 
 ```env
-# Paddle environment: "sandbox" or "production"
+# Environment: "sandbox" or "production"
 NEXT_PUBLIC_PADDLE_ENV=sandbox
 
-# Client-side token (from Paddle Dashboard > Authentication > Client-side tokens)
-NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_...
+# Client Token (Dashboard > Developer Tools > Authentication > Client-side tokens)
+NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=test_xxxxxxxxxxxxxxxxxxxxxxxx
 
-# Server-side API key (from Paddle Dashboard > Authentication > API keys)
-PADDLE_API_KEY=pdl_sdbx_apikey_...
+# API Secret Key (Dashboard > Developer Tools > Authentication > API keys)
+PADDLE_API_KEY=pdl_sdbx_apikey_xxxxxxxxxxxxxxxxxxxxxxxx
 
-# Webhook signing secret (from Paddle Dashboard > Notifications > your destination)
-PADDLE_NOTIFICATION_WEBHOOK_SECRET=pdl_ntfset_...
+# Webhook Signing Secret (Dashboard > Developer Tools > Notifications > Your Endpoint)
+PADDLE_NOTIFICATION_WEBHOOK_SECRET=pdl_ntfset_xxxxxxxxxxxxxxxxxxxxxxxx
 
-# Price IDs (generated by npm run seed:catalog)
-NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTH=pri_...
-NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEAR=pri_...
-NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH=pri_...
-NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR=pri_...
-NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTH=pri_...
-NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEAR=pri_...
+# Price IDs (Populated automatically in Step 3 or manually)
+NEXT_PUBLIC_PADDLE_PRICE_STARTER_MONTH=
+NEXT_PUBLIC_PADDLE_PRICE_STARTER_YEAR=
+NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH=
+NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR=
+NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_MONTH=
+NEXT_PUBLIC_PADDLE_PRICE_ADVANCED_YEAR=
 ```
 
-## Testing locally with ngrok
+### 3. Automatically Seed Products & Prices
 
-Paddle sends webhooks to a public URL. To test on localhost:
+Run the catalog generator to create products, monthly/yearly prices, 7-day trials, and country currency overrides (USD, GBP, EUR, AUD):
 
-1. **Install ngrok**
-   ```bash
-   # macOS
-   brew install ngrok
+```bash
+npm run seed:catalog
+```
 
-   # Linux (download from https://ngrok.com/download)
-   snap install ngrok
+This script will output the created IDs into your console and save them into `catalog-ids.json`. It will also output the corresponding `.env.local` snippet to paste into your environment file.
 
-   # Or use the binary directly
-   # https://dashboard.ngrok.com/get-started/your-authtoken
-   ```
+### 4. Start Local Development Server
 
-2. **Start your dev server**
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
-3. **Start ngrok** to expose port 3000
+Open [http://localhost:3000](http://localhost:3000) to view the pricing page.
+
+---
+
+## 🔔 Setting Up Webhook Tunneling (Local Testing)
+
+Paddle delivers events via HTTP `POST` requests. To test webhooks on `localhost`:
+
+### Option A: Using ngrok
+
+1. Start your local tunnel:
    ```bash
    ngrok http 3000
    ```
-   Copy the `https://xxxx-xx-xx-xx-xx.ngrok-free.app` URL.
-
-4. **Configure the webhook in Paddle Dashboard**
-   - Go to Developer Tools &rarr; Notifications
-   - Click **Add destination** &rarr; **Webhook**
-   - URL: `https://xxxx-xx-xx-xx-xx.ngrok-free.app/api/webhook/paddle`
-   - Events: `subscription.created`, `subscription.updated`, `subscription.canceled`, `transaction.completed`, `customer.created`, `customer.updated`
-   - Save, then copy the **Signing Secret** into your `.env.local`:
-     ```
+2. Copy your public forwarding URL (e.g. `https://your-domain.ngrok-free.app`).
+3. In **Paddle Dashboard** &rarr; **Developer Tools** &rarr; **Notifications**:
+   - Click **Add Destination** &rarr; **Webhook**.
+   - URL: `https://your-domain.ngrok-free.app/api/webhook`.
+   - Subscribe to events:
+     - `subscription.created`
+     - `subscription.updated`
+     - `subscription.canceled`
+     - `customer.created`
+     - `customer.updated`
+     - `transaction.completed`
+   - Save and copy the **Signing Secret** into `.env.local`:
+     ```env
      PADDLE_NOTIFICATION_WEBHOOK_SECRET=pdl_ntfset_...
      ```
-   - **Restart your dev server** after changing `.env.local`
+   - Restart `npm run dev`.
 
-5. **Test a checkout**
-   - Open `http://localhost:3000`
-   - Enter any email and click "Start free trial"
-   - Use a [sandbox test card](https://developer.paddle.com/testing/TESTING):
+### Option B: Inspecting Webhooks
 
-     | Scenario | Card number |
-     |---|---|
-     | Successful payment | `4242 4242 4242 4242` |
-     | Declined payment | `4000 0000 0000 0002` |
-     | 3D Secure challenge | `4000 0027 6000 3184` |
+- Open `http://127.0.0.1:4040` to view incoming request payloads and replay webhooks in ngrok.
+- Server logs will display formatted `[Paddle Webhook]` activity entries.
 
-     Use any future expiry date and any 3-digit CVC.
+---
 
-6. **Verify**
-   - Open `http://localhost:3000/account` &mdash; your subscription should appear
-   - Check the ngrok terminal for incoming webhook POSTs
-   - Check your Next.js server logs for `[Paddle Webhook]` entries
+## 🧪 Testing with Sandbox Cards
 
-### ngrok tips
+When checking out on the demo pricing page, use these official Paddle Sandbox credentials:
 
-- **Inspect requests**: Open `http://127.0.0.1:4040` to see all ngrok traffic
-- **Replay webhooks**: Use the ngrok dashboard to replay failed requests
-- **Custom subdomain** (paid): `ngrok http --domain=your-subdomain.ngrok.app 3000`
-- **Auth** (optional): `ngrok http --basic-auth=user:pass 3000`
+| Test Scenario | Card Number | Expiry | CVC | Notes |
+|---|---|---|---|---|
+| **Successful Payment** | `4242 4242 4242 4242` | Future date | Any 3 digits | Triggers instant `transaction.completed` |
+| **Declined Payment** | `4000 0000 0000 0002` | Future date | Any 3 digits | Simulates card rejection |
+| **3D Secure Challenge** | `4000 0027 6000 3184` | Future date | Any 3 digits | Opens 3DS verification modal |
 
-## Switching to production
+> **Pro-Tip**: The demo includes quick 1-click copy buttons for test card numbers directly in the pricing UI!
 
-1. In Paddle Dashboard, switch to your **Live** account
-2. Generate live credentials:
-   - Client token starts with `live_`
-   - API key starts with `pdl_live_apikey_`
-   - Create a new notification destination with its own signing secret
-3. Re-run `npm run seed:catalog` with live credentials to create production products
-4. Update `.env.local`:
+---
+
+## 📊 Database Schema & State Machine
+
+The local database mirror uses `better-sqlite3` stored in `data/paddle.db`.
+
+```mermaid
+erDiagram
+    CUSTOMERS ||--o{ SUBSCRIPTIONS : owns
+    CUSTOMERS ||--o{ TRANSACTIONS : pays
+    CUSTOMERS {
+        string customer_id PK
+        string email
+        timestamp created_at
+        timestamp updated_at
+    }
+    SUBSCRIPTIONS {
+        string subscription_id PK
+        string customer_id FK
+        string status
+        string price_id
+        string product_id
+        string scheduled_change_action
+        timestamp scheduled_change_at
+        timestamp updated_at
+    }
+    TRANSACTIONS {
+        string transaction_id PK
+        string customer_id FK
+        string status
+        string amount
+        string currency_code
+        timestamp created_at
+    }
+```
+
+### Subscription Access Control Logic
+
+Located in [`lib/access.ts`](lib/access.ts):
+
+| Status | Access Granted? | Behavior |
+|---|:---:|---|
+| `active` | ✅ Yes | Normal active paid subscriber. |
+| `trialing` | ✅ Yes | In 7-day free trial; full feature access. |
+| `past_due` | ✅ Yes (Grace) | Payment failed; access granted during grace period while Paddle Retain dunning retries. |
+| `scheduled_change` (cancel) | ✅ Yes | Cancellation scheduled at period end; access remains until expiry date. |
+| `paused` | ❌ No | Subscription paused; access suspended. |
+| `canceled` | ❌ No | Subscription terminated; access revoked immediately. |
+
+---
+
+## 🔒 Security Best Practices Implemented
+
+1. **Strict HMAC Signature Verification**:
+   All incoming webhooks verify `paddle-signature` against `PADDLE_NOTIFICATION_WEBHOOK_SECRET` on raw text body before parsing.
+2. **Server-Side Customer Resolution**:
+   Portal session minting and subscription mutations resolve the authenticated user identity via secure server actions, preventing ID tampering.
+3. **Idempotent Database Upserts**:
+   Webhook handlers utilize `ON CONFLICT DO UPDATE` to prevent race conditions or duplicate records when Paddle replays events.
+4. **Secret Segregation**:
+   Client-side tokens (`test_` / `live_`) only expose public actions, while API Keys (`pdl_sdbx_apikey_`) and signing secrets remain strictly server-side.
+
+---
+
+## ⚙️ Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts Next.js development server with hot reload |
+| `npm run build` | Compiles the Next.js production build |
+| `npm run start` | Boots the compiled production application |
+| `npm run lint` | Runs ESLint validation across the repository |
+| `npm run seed:catalog` | Provisons products, prices, and purchasing-power overrides in Paddle |
+
+---
+
+## 🚢 Transitioning to Production
+
+When moving from Sandbox to Live:
+
+1. Log into **[Paddle Production Dashboard](https://vendors.paddle.com/)**.
+2. Generate live credentials under **Developer Tools &rarr; Authentication**:
+   - Client-side token (starts with `live_`)
+   - API key (starts with `pdl_live_apikey_`)
+3. Create a production Webhook Destination and obtain the live **Signing Secret**.
+4. Run `npm run seed:catalog` with live credentials to provision live products and prices.
+5. Update `.env.local` (or your hosting environment variables on Vercel / Railway / AWS):
    ```env
    NEXT_PUBLIC_PADDLE_ENV=production
    NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=live_...
    PADDLE_API_KEY=pdl_live_apikey_...
    PADDLE_NOTIFICATION_WEBHOOK_SECRET=pdl_ntfset_...
    ```
-5. Update the webhook URL in Paddle Dashboard to your production domain
-6. Deploy to Vercel, Railway, or your preferred platform
+6. Set the production webhook URL to `https://yourdomain.com/api/webhook`.
 
-**Never use sandbox credentials in production or vice versa.**
+---
 
-## Database
+## 📄 License
 
-SQLite via `better-sqlite3` (no ORM). The database file is at `data/paddle.db`.
-
-| Table | Key columns |
-|---|---|
-| `customers` | `customer_id` (PK), `email` |
-| `subscriptions` | `subscription_id` (PK), `customer_id` (FK), `status`, `price_id` |
-| `transactions` | `transaction_id` (PK), `customer_id`, `status`, `amount` |
-
-All writes use `ON CONFLICT ... DO UPDATE` &mdash; safe to receive the same webhook event twice.
-
-## Scripts
-
-| Command | Description |
-|---|---|
-| `npm run dev` | Start Next.js dev server (Turbopack) |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run seed:catalog` | Create Paddle products & prices in current environment |
-
-## License
-
-MIT
+This project is licensed under the [MIT License](LICENSE).
